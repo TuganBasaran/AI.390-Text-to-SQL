@@ -3,3 +3,5 @@ SQLAlchemy
 python-dotenv
 matplotlib
 streamlit
+google-generativeai
+python-docx
