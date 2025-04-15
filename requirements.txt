@@ -5,3 +5,5 @@ matplotlib
 streamlit
 google-generativeai
 python-docx
+pymysql
+cryptography
