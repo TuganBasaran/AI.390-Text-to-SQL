@@ -1,19 +1,14 @@
 import os
-import time
-import json
 import re
 import difflib
-import pandas as pd
 from docx import Document
 import google.generativeai as genai
 from dotenv import load_dotenv
 import db.db
 
-# Load API key
 load_dotenv()
 genai.configure(api_key=os.getenv("API_KEY"))
 
-# Gemini model
 model = genai.GenerativeModel("gemini-2.0-flash")
 
 def generate_rag_response(prompt):
@@ -35,22 +30,19 @@ def generate_sql_only(prompt):
     response = model.generate_content([sql_prompt, prompt])
     return response.text.strip()
 
-# Load .docx chunks
 def load_chunks_from_docs(doc_path):
     doc = Document(doc_path)
     chunks = []
     for i, para in enumerate(doc.paragraphs):
         text = para.text.strip()
         if text:
-            # Bilgiyi daha açıklayıcı hale getir (manuel mapping)
             if "Headquarters:" in text:
                 text = text.replace("Headquarters:", "The company is located in")
             if "Company Name:" in text:
                 text = text.replace("Company Name:", "The company name is")
-            chunks.append({"chunk_id": i+1, "content": text})
+            chunks.append({"chunk_id": i + 1, "content": text})
     return chunks
 
-# Finding relevant chunks
 def find_most_accurate_chunks(query, chunks, top_n=3):
     scores = []
     for chunk in chunks:
@@ -59,7 +51,6 @@ def find_most_accurate_chunks(query, chunks, top_n=3):
     sorted_chunks = sorted(scores, key=lambda x: x[0], reverse=True)
     return [c[1] for c in sorted_chunks[:top_n]]
 
-# RAG answer generator
 def generate_rag_answer(query, chunks):
     top_chunks = find_most_accurate_chunks(query, chunks, top_n=3)
     knowledge = "\n".join([chunk["content"].replace("Company Name:", "The company is named") for chunk in top_chunks])
@@ -73,19 +64,27 @@ Question: {query}
 Answer:"""
     return generate_rag_response(prompt)
 
-# Deciding if question is SQL or RAG
+# ✨ LLM-based query type detection (sql / rag)
 def detect_question_type(query):
-    sql_keywords = ["order", "amount", "customer", "placed", "total", "average", "revenue", "spent"]
-    return "sql" if any(word in query.lower() for word in sql_keywords) else "rag"
+    prompt = (
+        "You are a smart assistant that classifies user queries.\n"
+        "Determine whether the following question should be answered using:\n"
+        "- 'sql' → if it requires querying a structured table called 'orders' with columns: order_id, customer_name, order_date, amount\n"
+        "- 'rag' → if it requires company background information, documentation, or general company facts.\n\n"
+        "Return only one word: 'sql' or 'rag'.\n\n"
+        f"Question: {query}\n"
+        "Type:"
+    )
+    response = model.generate_content(prompt)
+    answer = response.text.strip().lower()
+    return "sql" if "sql" in answer else "rag"
+
 
 def clean_sql_query(sql_text):
-    # Markdown formatını temizle (```sql ve ``` gibi kısımları kaldır)
-    # ve gerçek SQL sorgusunu çıkar
     sql_pattern = re.search(r'```(?:sql)?\s*(.*?)```', sql_text, re.DOTALL)
     if sql_pattern:
         return sql_pattern.group(1).strip()
     return sql_text.strip()
-
 
 def generate_answer(query, rag_chunks):
     q_type = detect_question_type(query)
@@ -95,6 +94,27 @@ def generate_answer(query, rag_chunks):
         return generate_rag_answer(query, rag_chunks)
 
 
+def test_question_classification():
+    test_questions = {
+        "What is the name of the company?": "rag",
+        "Where is the company located?": "rag",
+        "What is the company’s industry?": "rag",
+        "When was the company founded?": "rag",
+        "What services does the company offer?": "rag",
+        "What is the total revenue?": "sql",
+        "List all orders placed in 2024.": "sql",
+        "Who spent the most?": "sql",
+        "Is customer data shared with external parties?": "rag",
+        "Which month had the highest total revenue?": "sql",
+    }
+
+    print("🧪 Running classification test...\n")
+    for question, expected in test_questions.items():
+        result = detect_question_type(question)
+        status = "✅" if result == expected else "❌"
+        print(f"{status} Q: '{question}' → Predicted: {result} | Expected: {expected}")
+
+# Main loop
 if __name__ == "__main__":
     doc_path = "data/NovaCart_RAG_Company_Info.docx"
     rag_chunks = load_chunks_from_docs(doc_path)
@@ -103,26 +123,21 @@ if __name__ == "__main__":
         query = input("\n🔍 Ask a question (or type 'exit'): ")
         if query.lower() == "exit":
             break
-            
-        # Cevabı oluştur
+
         answer = generate_answer(query, rag_chunks)
         print(f"\n🤖 Answer:\n{answer}")
-        
-        # Soru tipi SQL mi kontrolü
+
         query_type = detect_question_type(query)
-        
-        # Eğer SQL sorgusu ise çalıştır
+
         if query_type == "sql":
             try:
-                # SQL kodunu temizle
                 cleaned_sql = clean_sql_query(answer)
                 print(f"\n📊 Running SQL query:\n{cleaned_sql}")
-                
-                # SQL sorgusunu çalıştır
+
                 print("\n📋 Query results:")
                 db.db.execute_query(cleaned_sql)
                 print("\n✅ Query executed successfully!")
-                
+
             except Exception as e:
                 print(f"\n❌ SQL execution error: {str(e)}")
 
@@ -130,11 +145,11 @@ if __name__ == "__main__":
 
 """ RAG:
 🔹 Doğrudan içerikle birebir eşleşen:
-	•	What is the name of the company?
-	•	Where is the company located?
-	•	What is the company’s industry?
-	•	When was the company founded?
-	•	What services does the company offer?
+	•	What is the name of the company? -->YARIM YAPIYOR
+	•	Where is the company located? -->YAPIYOR
+	•	What is the company’s industry?  -->YAPIYOR
+	•	When was the company founded? -->YAPAMIYOR
+	•	What services does the company offer? -->YAPAMIYOR
 
 🔹 Daha çıkarım isteyen (kontrol soruları):
 	•	Who is the target audience of the company?
@@ -142,7 +157,6 @@ if __name__ == "__main__":
 	•	Where are data backups stored?
 	•	What kind of analytics does the company provide?
 	•	Is customer data shared with external parties?
-	
 	
 	
 	SQL:
