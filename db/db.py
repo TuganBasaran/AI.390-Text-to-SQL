@@ -1,7 +1,6 @@
 import sqlalchemy as db
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import text
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, declarative_base
 from datetime import datetime
 
 
