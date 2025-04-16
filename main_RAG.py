@@ -1,11 +1,13 @@
 import os
 import time
 import json
+import re
 import difflib
 import pandas as pd
 from docx import Document
 import google.generativeai as genai
 from dotenv import load_dotenv
+import db.db
 
 # Load API key
 load_dotenv()
@@ -76,6 +78,14 @@ def detect_question_type(query):
     sql_keywords = ["order", "amount", "customer", "placed", "total", "average", "revenue", "spent"]
     return "sql" if any(word in query.lower() for word in sql_keywords) else "rag"
 
+def clean_sql_query(sql_text):
+    # Markdown formatını temizle (```sql ve ``` gibi kısımları kaldır)
+    # ve gerçek SQL sorgusunu çıkar
+    sql_pattern = re.search(r'```(?:sql)?\s*(.*?)```', sql_text, re.DOTALL)
+    if sql_pattern:
+        return sql_pattern.group(1).strip()
+    return sql_text.strip()
+
 
 def generate_answer(query, rag_chunks):
     q_type = detect_question_type(query)
@@ -93,8 +103,29 @@ if __name__ == "__main__":
         query = input("\n🔍 Ask a question (or type 'exit'): ")
         if query.lower() == "exit":
             break
+            
+        # Cevabı oluştur
         answer = generate_answer(query, rag_chunks)
         print(f"\n🤖 Answer:\n{answer}")
+        
+        # Soru tipi SQL mi kontrolü
+        query_type = detect_question_type(query)
+        
+        # Eğer SQL sorgusu ise çalıştır
+        if query_type == "sql":
+            try:
+                # SQL kodunu temizle
+                cleaned_sql = clean_sql_query(answer)
+                print(f"\n📊 Running SQL query:\n{cleaned_sql}")
+                
+                # SQL sorgusunu çalıştır
+                print("\n📋 Query results:")
+                db.db.execute_query(cleaned_sql)
+                print("\n✅ Query executed successfully!")
+                
+            except Exception as e:
+                print(f"\n❌ SQL execution error: {str(e)}")
+
 
 
 """ RAG:
