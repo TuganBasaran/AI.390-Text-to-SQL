@@ -18,7 +18,7 @@ def generate_sql(prompt):
         "Do NOT return any explanation—only valid SQL.'"
     )
 
-    response = model.generate_content([system_message, prompt], temperature=0.7)
+    response = model.generate_content([system_message, prompt])
     return response.text.strip()
 
 #rag için olan kısımda farklı prompt gerekiyordu ama o zaman sql bozuluyordu ben de ekleme yaptım birleştirdim ikisini
