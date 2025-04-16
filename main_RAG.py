@@ -26,6 +26,7 @@ def generate_sql_only(prompt):
         "Given a natural language question, convert it into an SQL query for a table called 'orders' "
         "with columns: order_id, customer_name, order_date, amount. "
         "Do NOT return any explanation—only valid SQL."
+        "Generate sql in MySql syntax."
     )
     response = model.generate_content([sql_prompt, prompt])
     return response.text.strip()
@@ -64,7 +65,7 @@ Question: {query}
 Answer:"""
     return generate_rag_response(prompt)
 
-# ✨ LLM-based query type detection (sql / rag)
+
 def detect_question_type(query):
     prompt = (
         "You are a smart assistant that classifies user queries.\n"

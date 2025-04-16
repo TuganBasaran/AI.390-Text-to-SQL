@@ -11,6 +11,7 @@ CODE AÇIKLAMASI
 2- mysql+pymysql://{mysql_kullanıcı_adı}:{mysql_kullanıcı_şifren}@localhost/{database_adın}
 3- Bu dosyayı bir kez run'layınca otomatik olarak table'ın AI_390 database'i içerisinde oluşturulacak 
 4- run_once.py dosyasına geç 
+5- Bir kez daha run'lamaya gerek kalmadı. 
 '''
 
 engine = db.create_engine('mysql+pymysql://root:password@localhost/AI_390')
@@ -58,4 +59,5 @@ def execute_query(query):
     '''Raw SQL query executer method'''
     result = session.execute(text(query))
     for row in result: 
-        print('ID: {} | Customer_Name: {} | Date: {} | Amount: {} '.format(row.order_id, row.customer_name, row.order_date, row.amount))
+        print('ID: {} | Customer_Name: {} | Date: {} | Amount: {} '
+              .format(row.order_id, row.customer_name, row.order_date, row.amount))
