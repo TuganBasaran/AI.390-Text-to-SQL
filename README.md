@@ -29,7 +29,7 @@ This project allows users to:
 
 1. Clone the repository:
    ```
-   git clone <repository-url>
+   git clone https://github.com/TuganBasaran/AI.390-Text-to-SQL.git
    cd Text-to-SQL
    ```
 
